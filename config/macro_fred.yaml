@@ -1,0 +1,49 @@
+start_date: "2003-01-01"
+end_date: null
+mode: "local"
+request_timeout_seconds: 30
+request_retries: 3
+incremental_overlap_days: 400
+
+paths:
+  raw: data/macro/raw
+  processed: data/macro/processed
+  logs: logs/macro
+  reports: reports/macro
+  market_features: data/market/market_prices.csv
+  news_features: data/news/features/daily_news_features.csv
+  final_features: data/model/toolmape_features.csv
+
+series:
+  DGS10:
+    name: "us_10y_yield"
+    frequency: "daily"
+    description: "US 10-year Treasury yield"
+  DGS2:
+    name: "us_2y_yield"
+    frequency: "daily"
+    description: "US 2-year Treasury yield"
+  DFII10:
+    name: "us_10y_real_yield"
+    frequency: "daily"
+    description: "US 10-year real yield"
+  FEDFUNDS:
+    name: "fed_funds_rate"
+    frequency: "monthly"
+    description: "Effective Federal Funds Rate"
+  CPIAUCSL:
+    name: "us_cpi"
+    frequency: "monthly"
+    description: "US Consumer Price Index"
+  DTWEXBGS:
+    name: "broad_usd_index"
+    frequency: "daily"
+    description: "Nominal Broad US Dollar Index"
+  SP500:
+    name: "sp500"
+    frequency: "daily"
+    description: "S&P 500 Index"
+  BAMLH0A0HYM2:
+    name: "high_yield_spread"
+    frequency: "daily"
+    description: "US High Yield Option-Adjusted Spread"

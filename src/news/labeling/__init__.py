@@ -1,0 +1,1 @@
+"""Labels de mercado."""

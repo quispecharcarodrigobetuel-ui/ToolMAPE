@@ -1,0 +1,37 @@
+pipeline:
+  mode: local
+  timezone: America/Lima
+  request_timeout_seconds: 20
+  request_retries: 2
+  user_agent: "ToolmapeNewsBot/1.0 (+contacto del proyecto Toolmape)"
+  max_items_per_source: 50
+  llm_provider: ollama
+  ollama_base_url: http://localhost:11434
+  ollama_model: llama3:latest
+  openai_model: gpt-5.5
+  llm_timeout_seconds: 300
+  llm_max_retries: 3
+  llm_retry_base_seconds: 2
+  llm_temperature: 0
+  llm_seed: 42
+  llm_keep_alive: 10m
+  market_prices_path: data/market/market_prices.csv
+  download_market_if_missing: false
+  market_start_date: "2020-01-01"
+
+labeling:
+  direction_threshold_pct: 0.3
+  impact_thresholds_pct:
+    low: 0.3
+    medium: 0.7
+    high: 1.5
+    very_high: 2.5
+
+paths:
+  raw: data/news/raw
+  processed: data/news/processed
+  enriched: data/news/enriched
+  labeled: data/news/labeled
+  features: data/news/features
+  logs: logs/news
+  reports: reports/news

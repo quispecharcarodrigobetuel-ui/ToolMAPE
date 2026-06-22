@@ -1,0 +1,16 @@
+beautifulsoup4>=4.12
+langdetect>=1.0.9
+openai>=1.68
+pandas>=2.2
+pydantic>=2.8
+python-dateutil>=2.9
+python-dotenv>=1.0
+PyYAML>=6.0
+requests>=2.32
+supabase>=2.15
+yfinance>=0.2.54
+pytest>=8.3
+
+# Opcional para fuentes que bloquean requests:
+# playwright>=1.50
+# Después: playwright install chromium

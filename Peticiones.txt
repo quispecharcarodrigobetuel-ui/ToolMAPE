@@ -1,0 +1,361 @@
+Quiero que construyas un módulo completo de scraping, enriquecimiento con GPT, labeling de mercado y publicación en Supabase para noticias que puedan afectar el precio del oro en soles por gramo.
+
+## Contexto del proyecto
+
+El sistema se llama Toolmape. Su objetivo es ayudar a mineros artesanales en Perú a decidir si conviene vender oro ahora o esperar. El precio objetivo del sistema es:
+
+precio_oro_soles_gramo = (precio_oro_usd_oz / 31.1035) * tipo_cambio_usd_pen
+
+Ya existe un pipeline de mercado con yfinance y modelos Random Forest de precio. Ahora quiero agregar señales sociopolíticas y macroeconómicas extraídas desde noticias.
+
+## Objetivo técnico
+
+Crear un pipeline local, automatizable y preparado para producción, que haga lo siguiente:
+
+1. extraer listados de noticias desde fuentes configuradas,
+2. normalizar títulos, URLs, fechas y resúmenes,
+3. deduplicar noticias,
+4. enviar cada noticia nueva a un GPT clasificador,
+5. recibir una salida JSON estructurada,
+6. guardar datos crudos y enriquecidos,
+7. cruzar noticias con precios de mercado para generar labels a 1d y 3d,
+8. generar features agregadas diarias,
+9. publicar todo en Supabase usando upsert,
+10. dejar el sistema listo para ejecutarse manualmente y luego automatizarse con GitHub Actions.
+
+## Fuentes iniciales
+
+Implementa colectores para estas fuentes:
+
+* Kitco News: https://www.kitco.com/news
+* IG Commodities: https://www.ig.com/es/tag/commodities
+* La República Colombia precio del oro: https://www.larepublica.co/precio-del-oro
+* Rumbo Minero oro: https://www.rumbominero.com/tag/precio-del-oro/
+* Rumbo Minero Fed: https://www.rumbominero.com/tag/fed/
+
+Si alguna fuente bloquea scraping directo con requests, no rompas el pipeline. Marca la fuente como fallida, registra el error y deja preparada una alternativa con Playwright o RSS/sitemap si corresponde.
+
+## Alcance de extracción
+
+Por ahora no quiero scraping profundo de artículo completo. Solo extrae lo más relevante del listado:
+
+* fuente
+* URL
+* título
+* resumen visible si existe
+* fecha de publicación si existe
+* categoría o tag si existe
+* fecha/hora de scraping
+* idioma estimado
+
+No guardes HTML innecesario salvo que sirva para depuración.
+
+## Estructura del proyecto
+
+Crea o actualiza una estructura clara:
+
+* `src/news/collectors/`
+* `src/news/processing/`
+* `src/news/gpt/`
+* `src/news/labeling/`
+* `src/news/features/`
+* `src/news/storage/`
+* `src/news/utils/`
+* `config/`
+* `data/news/raw/`
+* `data/news/processed/`
+* `data/news/enriched/`
+* `logs/news/`
+* `reports/news/`
+* `sql/`
+
+## Configuración
+
+Crea un archivo de configuración, por ejemplo:
+
+* `config/news_sources.yaml`
+* `config/news_pipeline.yaml`
+
+Debe incluir:
+
+* URLs de fuentes
+* frecuencia sugerida
+* idioma esperado
+* peso de confiabilidad por fuente
+* umbrales de labeling 1d y 3d
+* modelo GPT a usar
+* modo local o Supabase
+* rutas de salida
+
+## Supabase
+
+Crea scripts SQL en `sql/` para estas tablas:
+
+1. `news_sources`
+2. `news_raw`
+3. `news_gpt_enriched`
+4. `news_market_labels`
+5. `daily_news_features`
+6. `news_pipeline_runs`
+
+Usa UUID o claves estables. Las noticias deben deduplicarse por URL y también por hash de contenido/título.
+
+Usa upsert para evitar duplicados. Recuerda que en Supabase Python, para usar upsert correctamente deben incluirse claves primarias o columnas con restricción única en los datos.
+
+## Variables de entorno
+
+Usa `.env.example` con:
+
+* `OPENAI_API_KEY`
+* `SUPABASE_URL`
+* `SUPABASE_SERVICE_ROLE_KEY`
+* `NEWS_PIPELINE_MODE=local|supabase`
+
+Nunca hardcodear claves.
+
+## GPT clasificador
+
+Implementa un módulo que envíe cada noticia nueva a OpenAI usando salida estructurada JSON.
+
+El GPT debe devolver estos campos:
+
+* `tipo_activo`
+* `subtipo_evento`
+* `pais_region`
+* `sentido_oro`
+* `sentido_dolar`
+* `sentido_usd_pen`
+* `sentido_precio_oro_soles`
+* `impacto_esperado`
+* `horizonte_probable`
+* `confianza_gpt`
+* `resumen_estandarizado`
+* `escenario_base`
+* `escenario_diferente`
+* `condicion_de_cambio`
+* `variables_afectadas`
+* `actores_clave`
+* `razonamiento_resumido`
+
+Usa JSON schema estricto para reducir errores de parseo.
+
+No permitas texto libre fuera del JSON.
+
+Si falla la llamada al GPT, registra el error y deja la noticia pendiente para reintento.
+
+## Prompt GPT
+
+Usa este prompt base:
+
+Eres un analista macrofinanciero especializado en oro, dólar, tasas de interés, inflación, bancos centrales y riesgo geopolítico.
+
+Tu tarea es clasificar una noticia económica o minera para un sistema llamado Toolmape, cuyo objetivo es estimar el impacto sobre el precio del oro en soles peruanos por gramo.
+
+El precio objetivo final es:
+precio_oro_soles_gramo = (precio_oro_usd_oz / 31.1035) * tipo_cambio_usd_pen
+
+Debes analizar la noticia únicamente con la información proporcionada. No inventes datos. Si la noticia es ambigua o no tiene relación clara con oro, dólar, tasas, inflación, Fed, geopolítica, minería o tipo de cambio, clasifícala como impacto bajo o nulo.
+
+Devuelve exclusivamente un JSON válido ajustado al esquema solicitado.
+
+Reglas:
+
+1. Si una noticia fortalece el dólar, normalmente presiona a la baja el oro en USD.
+2. Si una noticia aumenta el riesgo geopolítico, normalmente favorece al oro como activo refugio.
+3. Si una noticia indica tasas más altas por más tiempo, normalmente es bajista para oro.
+4. Si una noticia indica recortes de tasas o dólar débil, normalmente es alcista para oro.
+5. Para precio_oro_soles_gramo, considera tanto oro_usd_oz como usd_pen. Puede ser mixto si oro baja pero USD/PEN sube.
+6. No des recomendaciones de inversión.
+7. No afirmes certeza absoluta.
+
+## Labeling de mercado
+
+Implementa labeling a 1d y 3d.
+
+El objetivo principal es `precio_oro_soles_gramo`.
+
+Para cada noticia:
+
+1. toma su fecha de publicación,
+2. encuentra el precio de referencia disponible más cercano de la sesión correspondiente,
+3. encuentra el precio 1 sesión después,
+4. encuentra el precio 3 sesiones después,
+5. calcula:
+
+* `return_1d`
+* `direction_1d`
+* `impact_class_1d`
+* `return_3d`
+* `direction_3d`
+* `impact_class_3d`
+
+Usa umbrales configurables:
+
+Dirección:
+
+* menor a -0.3% = bajista
+* entre -0.3% y 0.3% = neutral
+* mayor a 0.3% = alcista
+
+Impacto:
+
+* abs(return) < 0.3% = nulo
+* 0.3% a 0.7% = bajo
+* 0.7% a 1.5% = medio
+* 1.5% a 2.5% = alto
+* mayor a 2.5% = muy_alto
+
+Los umbrales deben vivir en config.
+
+## Features agregadas diarias
+
+A partir de `news_gpt_enriched`, genera `daily_news_features` por fecha:
+
+* `news_count_total`
+* `news_count_gold`
+* `news_count_dollar`
+* `news_count_fed`
+* `news_count_geopolitics`
+* `news_count_mining_peru`
+* `gold_bullish_score`
+* `gold_bearish_score`
+* `dollar_bullish_score`
+* `dollar_bearish_score`
+* `fed_hawkish_score`
+* `fed_dovish_score`
+* `geopolitical_risk_score`
+* `avg_impact_expected`
+* `max_impact_expected`
+* `avg_confidence_gpt`
+* `news_conflict_score`
+
+Estas features deben poder cruzarse luego con el dataset de mercado por fecha.
+
+## CLI
+
+Implementa comandos en `main.py` o en un módulo CLI:
+
+* `python main.py news scrape`
+* `python main.py news enrich`
+* `python main.py news label`
+* `python main.py news features`
+* `python main.py news publish`
+* `python main.py news all`
+
+Debe poder correr en modo local y en modo Supabase.
+
+## Logs
+
+Registra cada ejecución en:
+
+* `logs/news/news_pipeline_runs.jsonl`
+
+Y, si Supabase está activo, también en tabla:
+
+* `news_pipeline_runs`
+
+Cada corrida debe guardar:
+
+* run_id
+* timestamp
+* etapa ejecutada
+* fuente
+* noticias encontradas
+* noticias nuevas
+* noticias duplicadas
+* noticias enriquecidas
+* errores
+* duración
+* modo local/supabase
+
+## Artefactos locales
+
+En modo local, guarda:
+
+* noticias crudas en `data/news/raw/`
+* noticias limpias en `data/news/processed/`
+* noticias enriquecidas en `data/news/enriched/`
+* labels en `data/news/labeled/`
+* features agregadas en `data/news/features/`
+
+Formatos recomendados:
+
+* JSONL para eventos/noticias
+* CSV o Parquet para features tabulares
+
+## Publicación en Supabase
+
+Implementa una capa `storage/supabase_client.py`.
+
+Debe soportar:
+
+* upsert de noticias crudas
+* upsert de enriquecimientos GPT
+* upsert de labels
+* upsert de features diarias
+* registro de corridas
+
+Usa variables de entorno.
+
+No publiques duplicados.
+
+## Calidad
+
+El código debe:
+
+* ser modular
+* tener type hints donde sea razonable
+* manejar errores por fuente
+* no detener todo el pipeline si una fuente falla
+* tener reintentos simples
+* documentar decisiones
+* tener README actualizado
+
+## README
+
+Actualizar README con:
+
+* cómo instalar
+* cómo configurar `.env`
+* cómo ejecutar local
+* cómo ejecutar con Supabase
+* cómo automatizar con GitHub Actions
+* explicación del papel del GPT
+* explicación de labeling 1d y 3d
+* limitaciones del scraping
+* próximos pasos
+
+## Automatización futura
+
+Crear un archivo sugerido de GitHub Actions:
+
+`.github/workflows/news_pipeline.yml`
+
+Debe correr inicialmente cada 1 hora de lunes a viernes, pero dejarlo configurable.
+
+El workflow debe:
+
+1. instalar dependencias
+2. ejecutar scraping
+3. ejecutar enriquecimiento GPT
+4. ejecutar labeling cuando haya precios disponibles
+5. publicar en Supabase
+6. guardar logs
+
+No poner secretos en el YAML; usar GitHub Secrets.
+
+## Criterios de aceptación
+
+El módulo estará completo si:
+
+1. puede extraer noticias de al menos una fuente,
+2. deduplica noticias,
+3. genera JSON estructurado con GPT,
+4. guarda localmente los resultados,
+5. puede publicar en Supabase,
+6. genera labels 1d y 3d cuando existe precio disponible,
+7. genera features diarias,
+8. registra logs,
+9. el pipeline puede correrse completo con un solo comando.
+
+Implementa los archivos reales, no solo explicaciones.

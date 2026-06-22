@@ -1,0 +1,78 @@
+sources:
+  - id: kitco_news
+    name: Kitco News
+    url: https://www.kitco.com/news
+    expected_language: en
+    reliability_weight: 0.95
+    suggested_frequency_minutes: 60
+    article_selectors:
+      - "a[href*='/news/article/']"
+      - "article"
+      - "[class*='article-card']"
+      - "[class*='news-card']"
+    link_patterns: ["/news/article/", "/news/"]
+    exclude_link_patterns: ["/news/category/", "/news/author/", "/news/search"]
+    fallback_urls:
+      - https://www.kitco.com/rss/news
+    allow_playwright_fallback: true
+
+  - id: ig_commodities
+    name: IG Commodities
+    url: https://www.ig.com/es/tag/commodities
+    expected_language: es
+    reliability_weight: 0.85
+    suggested_frequency_minutes: 60
+    article_selectors:
+      - "article"
+      - "[class*='article']"
+      - "[class*='card']"
+    link_patterns: ["/es/noticias-y-ideas/", "/es/estrategias-de-trading/"]
+    exclude_link_patterns: ["/tag/", "/autores/"]
+    fallback_urls: []
+    allow_playwright_fallback: true
+
+  - id: larepublica_co_gold
+    name: La República Colombia - Precio del oro
+    url: https://www.larepublica.co/precio-del-oro
+    expected_language: es
+    reliability_weight: 0.80
+    suggested_frequency_minutes: 60
+    article_selectors:
+      - "article"
+      - "[class*='card']"
+      - "[class*='news']"
+    link_patterns: ["/economia/", "/finanzas/", "/globoeconomia/"]
+    exclude_link_patterns: ["/precio-del-oro", "/autor/"]
+    fallback_urls:
+      - https://www.larepublica.co/rss
+    allow_playwright_fallback: true
+
+  - id: rumbo_minero_gold
+    name: Rumbo Minero - Precio del oro
+    url: https://www.rumbominero.com/tag/precio-del-oro/
+    expected_language: es
+    reliability_weight: 0.80
+    suggested_frequency_minutes: 60
+    category: precio_del_oro
+    required_keywords: ["oro", "gold"]
+    article_selectors: ["article", ".post-item", ".jeg_post", ".elementor-post", ".td_module_wrap"]
+    link_patterns: ["/"]
+    exclude_link_patterns: ["/tag/", "/category/", "/author/", "/page/"]
+    fallback_urls:
+      - https://www.rumbominero.com/tag/precio-del-oro/feed/
+    allow_playwright_fallback: true
+
+  - id: rumbo_minero_fed
+    name: Rumbo Minero - Fed
+    url: https://www.rumbominero.com/tag/fed/
+    expected_language: es
+    reliability_weight: 0.80
+    suggested_frequency_minutes: 60
+    category: fed
+    required_keywords: ["fed", "fomc", "reserva federal", "tasa"]
+    article_selectors: ["article", ".post-item", ".jeg_post", ".elementor-post", ".td_module_wrap"]
+    link_patterns: ["/"]
+    exclude_link_patterns: ["/tag/", "/category/", "/author/", "/page/"]
+    fallback_urls:
+      - https://www.rumbominero.com/tag/fed/feed/
+    allow_playwright_fallback: true

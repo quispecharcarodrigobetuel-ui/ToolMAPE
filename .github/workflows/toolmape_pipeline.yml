@@ -1,0 +1,51 @@
+name: Toolmape Integrated Pipeline
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Cada hora de lunes a viernes; cron de GitHub Actions usa UTC.
+    - cron: "0 * * * 1-5"
+
+jobs:
+  pipeline:
+    # Runner instalado en la máquina Windows que ejecuta Ollama.
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      NEWS_PIPELINE_MODE: supabase
+      MACRO_PIPELINE_MODE: supabase
+      NEWS_LLM_PROVIDER: ollama
+      OLLAMA_BASE_URL: http://localhost:11434
+      OLLAMA_MODEL: llama3:latest
+      NEWS_MARKET_PRICES_PATH: data/market/market_prices.csv
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+      - name: Comprobar Ollama
+        run: ollama list
+      - name: Actualizar mercado con yfinance
+        run: |
+          python -c "from src.news.config import load_config; from src.news.labeling.market import load_market_prices; c=load_config(); c['pipeline']['download_market_if_missing']=True; load_market_prices(c)"
+      - name: Ejecutar pipeline integrado
+        run: python main.py all --mode supabase
+      - name: Guardar artefactos y logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: toolmape-pipeline-${{ github.run_id }}
+          path: |
+            logs/
+            reports/
+            data/macro/processed/
+          if-no-files-found: ignore
+          retention-days: 14
